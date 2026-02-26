@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.hashedit/
+.strata/
+reports/
+*.tsbuildinfo
+
+# Local Claude Code settings (contains user-specific paths/permissions)
+.claude/settings.local.json
+
+# Internal docs and drafts
+DESIGN.md
+CLAUDE.md
+blog-post-outline.md
+paper/
+
+# Analysis/benchmarking scripts (internal evaluation tooling)
+scripts/analyze-*.cjs

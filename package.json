@@ -1,0 +1,25 @@
+{
+  "name": "strata",
+  "version": "0.1.0",
+  "description": "Adaptive structural editing for LLM coding agents — entropy-guided structural analysis, hashline edits, cross-file reference detection",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "strata-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "node --test dist/**/*.test.js",
+    "test:dev": "tsc && node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
