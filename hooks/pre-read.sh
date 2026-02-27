@@ -69,7 +69,7 @@ if [ -n "$OFFSET" ] && [[ "$OFFSET" =~ ^[0-9]+$ ]]; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "allow",
-    "additionalContext": "This file has a structural outline. To edit: structural_expand to get hashline tags for the section, then structural_edit to apply changes."
+    "additionalContext": "This file has a structural outline. For focused reads and edits, use structural_expand <range> — returns hashline-tagged content for structural_edit."
   }
 }
 ENDJSON
@@ -101,10 +101,30 @@ if [ "$LINE_COUNT" -lt "$LINE_THRESHOLD" ]; then
     CONTEXT_SUFFIX='for reference. Labels are hashline-tagged — to edit: structural_expand <range> then structural_edit.'
 fi
 
-# --- Mode 1: Large file (>= LINE_THRESHOLD) — default context ---
+# --- Mode 1: Large file (>= LINE_THRESHOLD) ---
+# Check if agent already received an outline for this file — if so, passthrough
+OUTLINED_MARKER="${CACHE_DIR}/${FILE_HASH}-${FILE_MTIME}-outlined"
+
+if [ -z "${CONTEXT_PREFIX:-}" ] && [ -f "$OUTLINED_MARKER" ]; then
+    # Agent already saw the outline — serve full content with context reminder
+    _strata_log hook pre-read decision passthrough_already_outlined file "$FILE_PATH" lines "$LINE_COUNT"
+    cat <<ENDJSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "additionalContext": "Full content below. A structural outline was previously served for this file. For focused reads and edits, use structural_expand <range> then structural_edit."
+  }
+}
+ENDJSON
+    exit 0
+fi
+
+# Mode 1 default context (first untargeted read of large file)
 if [ -z "${CONTEXT_PREFIX:-}" ]; then
+    touch "$OUTLINED_MARKER"
     CONTEXT_PREFIX="Structural outline of"
-    CONTEXT_SUFFIX='Labels are hashline-tagged (e.g. 42#ABC:content). To edit this file: structural_expand <range> to get tagged content, then structural_edit to apply changes.'
+    CONTEXT_SUFFIX='Use structural_expand to read any section — returns content with hashline tags for structural_edit. Only use Read with offset/limit if you need untagged content. Labels are hashline-tagged (e.g. 42#ABC:content).'
 fi
 
 # --- Generate and serve outline ---

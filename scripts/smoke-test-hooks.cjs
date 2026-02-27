@@ -73,7 +73,7 @@ const targeted = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE, of
 const t2out = targeted.hookSpecificOutput || {};
 assert('targeted read permissionDecision = allow', t2out.permissionDecision === 'allow', t2out.permissionDecision);
 assert('targeted read does NOT redirect file_path', !t2out.updatedInput, JSON.stringify(t2out.updatedInput));
-assert('targeted read additionalContext mentions hashline tags', (t2out.additionalContext || '').includes('hashline tags'), t2out.additionalContext?.substring(0, 200));
+assert('targeted read additionalContext mentions hashline tags', (t2out.additionalContext || '').includes('hashline-tag'), t2out.additionalContext?.substring(0, 200));
 assert('targeted read additionalContext mentions structural_edit', (t2out.additionalContext || '').includes('structural_edit'), t2out.additionalContext?.substring(0, 200));
 
 // --- Step 3: Edit with hashline tags ---

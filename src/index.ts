@@ -197,9 +197,9 @@ server.tool(
 
 server.tool(
   "structural_expand",
-  "Get hashline-tagged content for a file section immediately before editing with structural_edit. " +
-    "Specify a line range or structural path. Returns LINE#HASH:content tags for use with structural_edit. " +
-    "For read-only exploration, prefer Read with offset/limit — it uses less context than tagged output.",
+  "Read section content from a file with hashline tags for precise editing. " +
+    "Use this to read any section of an outlined file — returns full content with LINE#HASH:content tags " +
+    "ready for structural_edit. Specify a line range or structural path.",
   {
     file_path: z.string().describe("Absolute path to the file"),
     range: z

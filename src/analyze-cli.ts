@@ -109,6 +109,6 @@ try {
   // Best effort — don't fail the hook if we can't persist
 }
 
-const hint = "  edit workflow: structural_expand <range> → structural_edit\n";
+const hint = "  read & edit: structural_expand <range> → structural_edit\n";
 const viewWithHint = view.replace("\n  ---\n", "\n  ---\n" + hint);
 process.stdout.write(viewWithHint);
