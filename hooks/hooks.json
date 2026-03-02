@@ -10,16 +10,7 @@
           }
         ]
       },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-edit.sh"
-          }
-        ]
-      },
-      {
+{
         "matcher": "Grep",
         "hooks": [
           {

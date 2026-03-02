@@ -2,10 +2,10 @@
 # PreToolUse hook for Claude Code — intercepts Read tool calls.
 #
 # Mode 1 (untargeted): file >= LINE_THRESHOLD, no offset/limit
-#   → redirect to cached structural outline via updatedInput
+#   → always redirect to cached structural outline via updatedInput
 # Mode 2 (repeat reads): file REPEAT_THRESHOLD to LINE_THRESHOLD-1
 #   → first untargeted read passes through, subsequent reads serve outline
-# Targeted reads and small files pass through unmodified.
+# Targeted reads (offset/limit present) and small files pass through unmodified.
 
 set -euo pipefail
 
@@ -61,7 +61,7 @@ SEEN_MARKER="${CACHE_DIR}/${FILE_HASH}-${FILE_MTIME}-seen"
 # Never redirect targeted reads via updatedInput — that breaks Claude Code's
 # read-tracking and prevents subsequent Edit calls on the original file.
 if [ -n "$OFFSET" ] && [[ "$OFFSET" =~ ^[0-9]+$ ]]; then
-    # Large files with an existing outline: remind about hashline editing
+    # Large files with an existing outline: remind about editing workflow
     if [ "$LINE_COUNT" -ge "$LINE_THRESHOLD" ] && [ -f "$CACHE_FILE" ]; then
         _strata_log hook pre-read decision passthrough_targeted_ctx file "$FILE_PATH" lines "$LINE_COUNT" offset "$OFFSET"
         cat <<ENDJSON
@@ -69,7 +69,7 @@ if [ -n "$OFFSET" ] && [[ "$OFFSET" =~ ^[0-9]+$ ]]; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "allow",
-    "additionalContext": "This file has a structural outline. For focused reads and edits, use structural_expand <range> — returns hashline-tagged content for structural_edit."
+    "additionalContext": "You can Edit this section using content from this Read. Make small, incremental edits — never rewrite the entire file."
   }
 }
 ENDJSON
@@ -98,33 +98,14 @@ if [ "$LINE_COUNT" -lt "$LINE_THRESHOLD" ]; then
     fi
     # Repeat read → fall through to outline generation with repeat context
     CONTEXT_PREFIX="Previously read in full. Outline of"
-    CONTEXT_SUFFIX='for reference. Labels are hashline-tagged — to edit: structural_expand <range> then structural_edit.'
+    CONTEXT_SUFFIX='for reference. To view specific sections: Read with offset/limit. To edit: Read a section with offset/limit, then use Edit. Make small, incremental edits — never rewrite the entire file.'
 fi
 
 # --- Mode 1: Large file (>= LINE_THRESHOLD) ---
-# Check if agent already received an outline for this file — if so, passthrough
-OUTLINED_MARKER="${CACHE_DIR}/${FILE_HASH}-${FILE_MTIME}-outlined"
-
-if [ -z "${CONTEXT_PREFIX:-}" ] && [ -f "$OUTLINED_MARKER" ]; then
-    # Agent already saw the outline — serve full content with context reminder
-    _strata_log hook pre-read decision passthrough_already_outlined file "$FILE_PATH" lines "$LINE_COUNT"
-    cat <<ENDJSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "additionalContext": "Full content below. A structural outline was previously served for this file. For focused reads and edits, use structural_expand <range> then structural_edit."
-  }
-}
-ENDJSON
-    exit 0
-fi
-
-# Mode 1 default context (first untargeted read of large file)
+# Always serve structural outline for untargeted reads of large files.
 if [ -z "${CONTEXT_PREFIX:-}" ]; then
-    touch "$OUTLINED_MARKER"
     CONTEXT_PREFIX="Structural outline of"
-    CONTEXT_SUFFIX='Use structural_expand to read any section — returns content with hashline tags for structural_edit. Only use Read with offset/limit if you need untagged content. Labels are hashline-tagged (e.g. 42#ABC:content).'
+    CONTEXT_SUFFIX='To view code: Read with offset/limit using line ranges from the outline. To edit: Read a section with offset/limit, then use Edit with content from that Read. Each Read+Edit pair should be small and incremental — never rewrite an entire file.'
 fi
 
 # --- Generate and serve outline ---

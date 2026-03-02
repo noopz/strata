@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * End-to-end smoke test: Read(Mode 1) → targeted read passthrough → Edit with hashlines.
- * Simulates the Claude Code hook pipeline.
+ * End-to-end smoke test for the read hook pipeline.
+ * Tests: outline serving, targeted read passthrough, repeat read handling.
  */
 
 const { execSync } = require('child_process');
@@ -55,14 +55,14 @@ const m1out = mode1.hookSpecificOutput || {};
 assert('permissionDecision = allow', m1out.permissionDecision === 'allow', m1out.permissionDecision);
 assert('updatedInput.file_path is cache file', m1out.updatedInput && m1out.updatedInput.file_path && m1out.updatedInput.file_path.includes('.strata/'), m1out.updatedInput?.file_path);
 assert('additionalContext mentions outline', (m1out.additionalContext || '').includes('outline'), m1out.additionalContext?.substring(0, 80));
-assert('Mode 1 additionalContext mentions hashline-tagged', (m1out.additionalContext || '').includes('hashline-tagged'), m1out.additionalContext?.substring(0, 200));
-assert('Mode 1 additionalContext mentions structural_edit', (m1out.additionalContext || '').includes('structural_edit'), m1out.additionalContext?.substring(0, 200));
+assert('Mode 1 additionalContext mentions Edit', (m1out.additionalContext || '').includes('Edit'), m1out.additionalContext?.substring(0, 200));
+assert('Mode 1 additionalContext warns against full rewrite', (m1out.additionalContext || '').includes('never rewrite'), m1out.additionalContext?.substring(0, 300));
 
-// Check that cached outline file contains hashline-tagged lines
+// Check that cached outline file contains line-number tags
 const cacheFilePath = m1out.updatedInput && m1out.updatedInput.file_path;
 if (cacheFilePath && fs.existsSync(cacheFilePath)) {
   const cacheContent = fs.readFileSync(cacheFilePath, 'utf-8');
-  assert('cached outline contains hashline tags', /\d+#[A-Z]{3}:/.test(cacheContent), cacheContent.substring(0, 200));
+  assert('cached outline contains line-number tags', /\d+:/.test(cacheContent), cacheContent.substring(0, 200));
 } else {
   assert('cached outline file exists for tag check', false, cacheFilePath || 'no path');
 }
@@ -73,61 +73,27 @@ const targeted = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE, of
 const t2out = targeted.hookSpecificOutput || {};
 assert('targeted read permissionDecision = allow', t2out.permissionDecision === 'allow', t2out.permissionDecision);
 assert('targeted read does NOT redirect file_path', !t2out.updatedInput, JSON.stringify(t2out.updatedInput));
-assert('targeted read additionalContext mentions hashline tags', (t2out.additionalContext || '').includes('hashline-tag'), t2out.additionalContext?.substring(0, 200));
-assert('targeted read additionalContext mentions structural_edit', (t2out.additionalContext || '').includes('structural_edit'), t2out.additionalContext?.substring(0, 200));
+assert('targeted read additionalContext mentions Edit', (t2out.additionalContext || '').includes('Edit'), t2out.additionalContext?.substring(0, 200));
+assert('targeted read additionalContext warns against full rewrite', (t2out.additionalContext || '').includes('never rewrite'), t2out.additionalContext?.substring(0, 200));
 
-// --- Step 3: Edit with hashline tags ---
-console.log('\n=== Step 3: Edit with hashline-tagged old_string ===');
-const editInput = {
-  tool_input: {
-    file_path: TEST_FILE,
-    old_string: '42#WTV:function handleAuth(req) {\n43#WXR:  const token = req.headers.auth;',
-    new_string: 'function handleAuth(req, res) {\n  const token = req.headers.authorization;',
-  },
-};
-const edit = runHook('pre-edit.sh', editInput);
-const eout = edit.hookSpecificOutput || {};
-assert('permissionDecision = allow', eout.permissionDecision === 'allow', eout.permissionDecision);
-assert('updatedInput exists', !!eout.updatedInput, '');
-if (eout.updatedInput) {
-  assert('old_string has NO hashline tags',
-    !/\d+#[A-Z]{3}:/.test(eout.updatedInput.old_string),
-    eout.updatedInput.old_string);
-  assert('old_string matches raw file content',
-    eout.updatedInput.old_string === 'function handleAuth(req) {\n  const token = req.headers.auth;',
-    JSON.stringify(eout.updatedInput.old_string));
-  assert('new_string is clean',
-    eout.updatedInput.new_string === 'function handleAuth(req, res) {\n  const token = req.headers.authorization;',
-    JSON.stringify(eout.updatedInput.new_string));
-}
-assert('additionalContext says "Hashline edit resolved"',
-  (eout.additionalContext || '').includes('Hashline edit resolved'),
-  eout.additionalContext);
-
-// --- Step 4: Edit WITHOUT hashlines (nudge toward structural_edit) ---
-console.log('\n=== Step 4: Edit without hashlines (outline nudge) ===');
-const plainEdit = runHook('pre-edit.sh', {
-  tool_input: {
-    file_path: TEST_FILE,
-    old_string: 'function handleAuth(req) {',
-    new_string: 'function handleAuth(req, res) {',
-  },
-});
-const p4out = plainEdit.hookSpecificOutput || {};
-assert('nudge permissionDecision = allow', p4out.permissionDecision === 'allow', p4out.permissionDecision);
-assert('nudge additionalContext mentions structural outline', (p4out.additionalContext || '').includes('structural outline'), p4out.additionalContext?.substring(0, 200));
-assert('nudge additionalContext mentions structural_edit', (p4out.additionalContext || '').includes('structural_edit'), p4out.additionalContext?.substring(0, 200));
-assert('nudge does NOT redirect updatedInput', !p4out.updatedInput, JSON.stringify(p4out.updatedInput));
-
-// --- Step 5: Offset-only Read on large file — passthrough with context ---
-console.log('\n=== Step 5: Offset-only Read on large file (passthrough + context) ===');
+// --- Step 3: Offset-only Read on large file — passthrough with context ---
+console.log('\n=== Step 3: Offset-only Read on large file (passthrough + context) ===');
 const offsetOnly = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE, offset: 40 } });
-const o5out = offsetOnly.hookSpecificOutput || {};
-assert('offset-only read permissionDecision = allow', o5out.permissionDecision === 'allow', o5out.permissionDecision);
-assert('offset-only read does NOT redirect file_path', !o5out.updatedInput, JSON.stringify(o5out.updatedInput));
+const o3out = offsetOnly.hookSpecificOutput || {};
+assert('offset-only read permissionDecision = allow', o3out.permissionDecision === 'allow', o3out.permissionDecision);
+assert('offset-only read does NOT redirect file_path', !o3out.updatedInput, JSON.stringify(o3out.updatedInput));
 
-// --- Step 6: Mid-size file repeat read (Mode 2) ---
-console.log('\n=== Step 6: Mid-size file repeat read (Mode 2) ===');
+// --- Step 4: Repeat untargeted Read of large file — should serve outline again ---
+console.log('\n=== Step 4: Repeat untargeted Read of large file ===');
+const repeat = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE } });
+const r4out = repeat.hookSpecificOutput || {};
+assert('repeat untargeted read serves outline', r4out.permissionDecision === 'allow', r4out.permissionDecision);
+assert('repeat untargeted read redirects to cache file', r4out.updatedInput && r4out.updatedInput.file_path && r4out.updatedInput.file_path.includes('.strata/'), r4out.updatedInput?.file_path);
+assert('repeat untargeted read additionalContext mentions outline', (r4out.additionalContext || '').includes('outline'), r4out.additionalContext?.substring(0, 100));
+assert('repeat untargeted read warns against full rewrite', (r4out.additionalContext || '').includes('never rewrite'), r4out.additionalContext?.substring(0, 300));
+
+// --- Step 5: Mid-size file repeat read (Mode 2) ---
+console.log('\n=== Step 5: Mid-size file repeat read (Mode 2) ===');
 const MID_TEST_FILE = '/tmp/test-hook-midsize.ts';
 const midLines = [];
 for (let i = 1; i <= 200; i++) {
@@ -146,26 +112,26 @@ if (fs.existsSync(midCacheDir)) {
   }
 }
 
-// 6a: First untargeted read → passthrough
-console.log('  --- 6a: First read (passthrough) ---');
+// 5a: First untargeted read → passthrough
+console.log('  --- 5a: First read (passthrough) ---');
 const mid1 = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE } });
 assert('first mid-size read passes through (empty JSON)', Object.keys(mid1).length === 0, JSON.stringify(mid1));
 
-// 6b: Second untargeted read → outline served
-console.log('  --- 6b: Second read (outline) ---');
+// 5b: Second untargeted read → outline served
+console.log('  --- 5b: Second read (outline) ---');
 const mid2 = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE } });
 const m2out = mid2.hookSpecificOutput || {};
 assert('repeat read serves outline', m2out.permissionDecision === 'allow', m2out.permissionDecision);
 assert('repeat read redirects to cache file', m2out.updatedInput && m2out.updatedInput.file_path && m2out.updatedInput.file_path.includes('.strata/'), m2out.updatedInput?.file_path);
 assert('repeat read additionalContext mentions "Previously read"', (m2out.additionalContext || '').includes('Previously read in full'), m2out.additionalContext?.substring(0, 100));
 
-// 6c: Targeted read of same file → still passthrough
-console.log('  --- 6c: Targeted read (passthrough) ---');
+// 5c: Targeted read of same file → still passthrough
+console.log('  --- 5c: Targeted read (passthrough) ---');
 const midTargeted = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE, offset: 48, limit: 6 } });
 assert('targeted read of mid-size file passes through', Object.keys(midTargeted).length === 0, JSON.stringify(midTargeted));
 
-// --- Step 7: Verify hook log entries ---
-console.log('\n=== Step 7: Hook log verification ===');
+// --- Step 6: Verify hook log entries ---
+console.log('\n=== Step 6: Hook log verification ===');
 const hookLogPath = path.join('/tmp', '.strata', 'hook.log');
 if (fs.existsSync(hookLogPath)) {
   const logLines = fs.readFileSync(hookLogPath, 'utf-8').trim().split('\n');
@@ -173,24 +139,16 @@ if (fs.existsSync(hookLogPath)) {
 
   assert('hook.log has entries', logEntries.length > 0, `found ${logEntries.length}`);
 
-  // Check required fields on all entries
   const allHaveRequired = logEntries.every(e => e.ts && e.hook && e.decision && e.file);
   assert('all entries have ts, hook, decision, file', allHaveRequired,
     logEntries.find(e => !e.ts || !e.hook || !e.decision || !e.file) ? JSON.stringify(logEntries.find(e => !e.ts || !e.hook || !e.decision || !e.file)) : '');
 
-  // Check for specific pre-read decisions we expect from the test sequence
   const preReadDecisions = new Set(logEntries.filter(e => e.hook === 'pre-read').map(e => e.decision));
   assert('log contains outline_always decision', preReadDecisions.has('outline_always'), [...preReadDecisions].join(', '));
   assert('log contains passthrough_targeted_ctx decision', preReadDecisions.has('passthrough_targeted_ctx'), [...preReadDecisions].join(', '));
   assert('log contains passthrough_targeted decision', preReadDecisions.has('passthrough_targeted'), [...preReadDecisions].join(', '));
   assert('log contains passthrough_first_read decision', preReadDecisions.has('passthrough_first_read'), [...preReadDecisions].join(', '));
   assert('log contains outline_repeat decision', preReadDecisions.has('outline_repeat'), [...preReadDecisions].join(', '));
-
-  // Check for pre-edit decisions
-  const preEditDecisions = new Set(logEntries.filter(e => e.hook === 'pre-edit').map(e => e.decision));
-  assert('log contains hashline_resolved decision', preEditDecisions.has('hashline_resolved'), [...preEditDecisions].join(', '));
-  assert('log contains passthrough_no_hashlines decision', preEditDecisions.has('passthrough_no_hashlines'), [...preEditDecisions].join(', '));
-  assert('log contains passthrough_outline_nudge decision', preEditDecisions.has('passthrough_outline_nudge'), [...preEditDecisions].join(', '));
 } else {
   assert('hook.log exists', false, `not found at ${hookLogPath}`);
 }

@@ -1,9 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import {
-  renderStructuralView,
-  renderHashlinedRegion,
-} from "./formatter.js";
+import { renderStructuralView } from "./formatter.js";
 import type {
   StructuralTree,
   StructuralNode,
@@ -26,20 +23,21 @@ function makeNode(partial: Partial<StructuralNode>): StructuralNode {
 }
 
 describe("renderStructuralView", () => {
-  it("renders a simple tree", () => {
+  it("renders a simple tree with line-number tags", () => {
     const tree: StructuralTree = {
       filePath: "/src/app/main.ts",
       mtime: 1000,
       lineCount: 120,
       children: [
-        makeNode({ startLine: 1, endLine: 45, label: "import block" }),
+        makeNode({ startLine: 1, endLine: 45, label: "import block", labelLine: 1 }),
         makeNode({
           startLine: 47,
           endLine: 120,
           label: "class App",
+          labelLine: 47,
           children: [
-            makeNode({ startLine: 49, endLine: 80, label: "constructor()" }),
-            makeNode({ startLine: 82, endLine: 120, label: "run()" }),
+            makeNode({ startLine: 49, endLine: 80, label: "constructor()", labelLine: 49 }),
+            makeNode({ startLine: 82, endLine: 120, label: "run()", labelLine: 82 }),
           ],
         }),
       ],
@@ -50,10 +48,10 @@ describe("renderStructuralView", () => {
 
     assert.equal(lines[0], "main.ts [120 lines]");
     assert.equal(lines[1], "  ---");
-    assert.equal(lines[2], "  [1-45] import block");
-    assert.equal(lines[3], "  [47-120] class App");
-    assert.equal(lines[4], "    [49-80] constructor()");
-    assert.equal(lines[5], "    [82-120] run()");
+    assert.equal(lines[2], "  [1-45] 1:import block");
+    assert.equal(lines[3], "  [47-120] 47:class App");
+    assert.equal(lines[4], "    [49-80] 49:constructor()");
+    assert.equal(lines[5], "    [82-120] 82:run()");
   });
 
   it("renders connections with direction arrows", () => {
@@ -95,7 +93,6 @@ describe("renderStructuralView", () => {
     const lines = result.split("\n");
 
     assert.equal(lines[0], "utils.ts [50 lines]");
-    // Sorted by strength: 5.0, 4.0, 3.0
     assert.equal(
       lines[1],
       "  connections: \u2192 app.ts, \u2194 shared.ts, \u2190 db.ts",
@@ -125,7 +122,6 @@ describe("renderStructuralView", () => {
 
     const result = renderStructuralView(tree, connections);
     const connLine = result.split("\n")[1];
-    // Count arrows - should be exactly 5
     const arrowCount = (connLine.match(/\u2192/g) || []).length;
     assert.equal(arrowCount, 5);
   });
@@ -157,16 +153,7 @@ describe("renderStructuralView", () => {
     );
   });
 
-  it("renders hashline-tagged labels when hashFn and fileLines provided", () => {
-    const fileLines = [
-      "import stuff",            // line 1
-      "",                         // line 2
-      "function hello() {",      // line 3
-      "  return 42;",            // line 4
-      "}",                        // line 5
-    ];
-    const hashFn = (s: string) => "ABC";
-
+  it("renders line-number-tagged labels", () => {
     const tree: StructuralTree = {
       filePath: "/src/tagged.ts",
       mtime: 1000,
@@ -177,109 +164,11 @@ describe("renderStructuralView", () => {
       ],
     };
 
-    const result = renderStructuralView(tree, undefined, undefined, hashFn, fileLines);
-    const lines = result.split("\n");
-
-    assert.equal(lines[2], "  [1-2] 1#ABC:import stuff");
-    assert.equal(lines[3], "  [3-5] 3#ABC:function hello() {");
-  });
-
-  it("computes hash from raw file line, not truncated label", () => {
-    // File line has leading spaces; label is trimmed
-    const fileLines = [
-      "    function indented() {",  // line 1 — raw with leading spaces
-    ];
-    const hashes: string[] = [];
-    const hashFn = (s: string) => {
-      hashes.push(s);
-      return "XYZ";
-    };
-
-    const tree: StructuralTree = {
-      filePath: "/src/indent.ts",
-      mtime: 1000,
-      lineCount: 1,
-      children: [
-        makeNode({ startLine: 1, endLine: 1, label: "function indented() {", labelLine: 1 }),
-      ],
-    };
-
-    const result = renderStructuralView(tree, undefined, undefined, hashFn, fileLines);
-    // hashFn should have been called with the raw file line, not the trimmed label
-    assert.equal(hashes[0], "    function indented() {");
-    assert.ok(result.includes("1#XYZ:function indented() {"));
-  });
-
-  it("renders collapsed node with untagged pattern and tagged sample", () => {
-    const fileLines = [
-      "function getProp1() {",   // line 1
-      "  return this.prop1;",    // line 2
-      "}",                        // line 3
-      "",                         // line 4
-      "function getProp2() {",   // line 5
-      "  return this.prop2;",    // line 6
-      "}",                        // line 7
-    ];
-    const hashFn = () => "QRS";
-
-    const tree: StructuralTree = {
-      filePath: "/src/collapsed.ts",
-      mtime: 1000,
-      lineCount: 7,
-      children: [
-        makeNode({
-          startLine: 1,
-          endLine: 7,
-          label: "2 similar regions (7 lines)",
-          labelLine: 1,
-          collapsed: true,
-          pattern: "2 similar regions",
-          sampleLine: "function getProp1() {",
-        }),
-      ],
-    };
-
-    const result = renderStructuralView(tree, undefined, undefined, hashFn, fileLines);
-    const lines = result.split("\n");
-
-    // Pattern label is untagged
-    assert.equal(lines[2], "  [1-7] 2 similar regions");
-    // Sample line is tagged
-    assert.equal(lines[3], "    sample: 1#QRS:function getProp1() {");
-  });
-
-  it("renders without hashFn/fileLines unchanged (backward-compatible)", () => {
-    const tree: StructuralTree = {
-      filePath: "/src/plain.ts",
-      mtime: 1000,
-      lineCount: 10,
-      children: [
-        makeNode({ startLine: 1, endLine: 10, label: "function foo()", labelLine: 1 }),
-      ],
-    };
-
     const result = renderStructuralView(tree);
     const lines = result.split("\n");
-    assert.equal(lines[2], "  [1-10] function foo()");
-  });
 
-  it("falls back to untagged when labelLine is out of bounds", () => {
-    const fileLines = ["only one line"];
-    const hashFn = () => "ABC";
-
-    const tree: StructuralTree = {
-      filePath: "/src/oob.ts",
-      mtime: 1000,
-      lineCount: 1,
-      children: [
-        makeNode({ startLine: 1, endLine: 1, label: "only one line", labelLine: 99 }),
-      ],
-    };
-
-    const result = renderStructuralView(tree, undefined, undefined, hashFn, fileLines);
-    const lines = result.split("\n");
-    // Should render without tag since labelLine 99 is out of bounds
-    assert.equal(lines[2], "  [1-1] only one line");
+    assert.equal(lines[2], "  [1-2] 1:import stuff");
+    assert.equal(lines[3], "  [3-5] 3:function hello() {");
   });
 
   it("respects maxDepth", () => {
@@ -292,13 +181,15 @@ describe("renderStructuralView", () => {
           startLine: 1,
           endLine: 200,
           label: "class Deep",
+          labelLine: 1,
           children: [
             makeNode({
               startLine: 10,
               endLine: 100,
               label: "method()",
+              labelLine: 10,
               children: [
-                makeNode({ startLine: 20, endLine: 50, label: "inner block" }),
+                makeNode({ startLine: 20, endLine: 50, label: "inner block", labelLine: 20 }),
               ],
             }),
           ],
@@ -306,35 +197,10 @@ describe("renderStructuralView", () => {
       ],
     };
 
-    // maxDepth=2 means depth 0 (header) + depth 1 (top children) + depth 2 (grandchildren shown truncated)
     const result = renderStructuralView(tree, undefined, 2);
     const lines = result.split("\n");
 
-    assert.equal(lines[2], "  [1-200] class Deep");
+    assert.equal(lines[2], "  [1-200] 1:class Deep");
     assert.equal(lines[3], "    [10-100] ... (1 children)");
-  });
-});
-
-
-describe("renderHashlinedRegion", () => {
-  it("renders lines with hash tags", () => {
-    const lines = ["function foo() {", "  return 42;", "}"];
-    const hashFn = (s: string) => s.length.toString(16).padStart(3, "0");
-
-    const result = renderHashlinedRegion(lines, 10, 12, hashFn);
-    const output = result.split("\n");
-
-    assert.equal(output.length, 3);
-    assert.equal(output[0], `10#010:function foo() {`);
-    assert.equal(output[1], `11#00c:  return 42;`);
-    assert.equal(output[2], `12#001:}`);
-  });
-
-  it("handles single line", () => {
-    const lines = ["hello"];
-    const hashFn = () => "ABC";
-
-    const result = renderHashlinedRegion(lines, 5, 5, hashFn);
-    assert.equal(result, "5#ABC:hello");
   });
 });

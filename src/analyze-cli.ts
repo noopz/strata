@@ -19,7 +19,6 @@ import path from "node:path";
 import { analyzeFile } from "./structural-analyzer.js";
 import { CrossFileIndex } from "./cross-file-index.js";
 import { renderStructuralView } from "./formatter.js";
-import { computeHash } from "./hashline.js";
 
 /**
  * Get the project root directory.
@@ -99,7 +98,7 @@ index.indexFile(absPath, tree, lines);
 const connections = index.getConnections(absPath, 5);
 
 // Render with connections
-const view = renderStructuralView(tree, connections, undefined, computeHash, lines);
+const view = renderStructuralView(tree, connections);
 
 // Save the updated index
 try {
@@ -109,6 +108,4 @@ try {
   // Best effort — don't fail the hook if we can't persist
 }
 
-const hint = "  read & edit: structural_expand <range> → structural_edit\n";
-const viewWithHint = view.replace("\n  ---\n", "\n  ---\n" + hint);
-process.stdout.write(viewWithHint);
+process.stdout.write(view);

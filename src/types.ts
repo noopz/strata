@@ -4,10 +4,7 @@
  * Architecture:
  *   Structural Analyzer → builds StructuralTree from file content
  *   Cross-File Index    → extracts tokens from trees, computes IDF, finds connections
- *   Hashline Engine     → tags lines with LINE#HASH for edit addressing
- *   JIT Cache           → filepath+mtime keyed cache of structural trees
- *   MCP Server          → exposes tools (analyze, expand, edit, connections)
- *   PreToolUse Hook     → intercepts Read, redirects to structural view cache files
+ *   PreToolUse Hook     → intercepts Read, redirects to structural outline cache files
  */
 
 // ============================================================================
@@ -111,103 +108,3 @@ export interface CrossFileConnection {
   direction: "outgoing" | "incoming" | "bidirectional";
 }
 
-// ============================================================================
-// Hashline
-// ============================================================================
-
-/** A hashline-tagged line: LINE#HASH:content */
-export interface HashlineLine {
-  /** 1-based line number */
-  lineNumber: number;
-  /** Hash tag (e.g. "VRK" for 12-bit) */
-  hash: string;
-  /** Original line content */
-  content: string;
-}
-
-/** A hashline edit operation. */
-export interface HashlineEdit {
-  /** The operation type */
-  op: "set" | "replace" | "append" | "prepend" | "insert" | "delete";
-  /** The LINE#HASH tag identifying the target line */
-  tag: string;
-  /** New content (for set/replace/append/prepend/insert) */
-  content?: string[];
-  /** For replace: the LINE#HASH tag of the end of the range */
-  endTag?: string;
-}
-
-/** Result of applying hashline edits. */
-export interface HashlineEditResult {
-  success: boolean;
-  /** Updated file content */
-  content?: string;
-  /** Updated hashlines for the affected region */
-  updatedLines?: HashlineLine[];
-  /** Error message if failed */
-  error?: string;
-  /** Number of lines changed */
-  linesChanged?: number;
-}
-
-// ============================================================================
-// Cache
-// ============================================================================
-
-/** Cache entry for a processed file. */
-export interface CacheEntry {
-  /** The structural tree */
-  tree: StructuralTree;
-  /** Extracted tokens for cross-file indexing */
-  tokens: TokenOccurrence[];
-  /** The rendered structural view text (for the temp file) */
-  renderedView: string;
-  /** When this cache entry was created */
-  cachedAt: number;
-}
-
-/** Cache key: filepath + mtime. */
-export interface CacheKey {
-  filePath: string;
-  mtime: number;
-}
-
-// ============================================================================
-// MCP Tool Parameters
-// ============================================================================
-
-export interface AnalyzeParams {
-  file_path: string;
-  /** Max depth for the structural tree (default: unlimited) */
-  max_depth?: number;
-}
-
-export interface ExpandParams {
-  file_path: string;
-  /** Line range to expand: "start-end" (e.g. "212-280") */
-  range?: string;
-  /** Structural path to expand (e.g. "class SceneManager > loadScene") */
-  path?: string;
-}
-
-export interface EditParams {
-  file_path: string;
-  edits: HashlineEdit[];
-}
-
-export interface ConnectionsParams {
-  file_path: string;
-  /** Max connections to return (default: 10) */
-  limit?: number;
-}
-
-export interface SearchParams {
-  /** Search pattern (regex) */
-  pattern: string;
-  /** Directory to search in (default: cwd) */
-  path?: string;
-  /** File glob filter */
-  glob?: string;
-  /** Max results (default: 20) */
-  limit?: number;
-}
