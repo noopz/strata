@@ -98,14 +98,14 @@ if [ "$LINE_COUNT" -lt "$LINE_THRESHOLD" ]; then
     fi
     # Repeat read → fall through to outline generation with repeat context
     CONTEXT_PREFIX="Previously read in full. Outline of"
-    CONTEXT_SUFFIX='for reference. To view specific sections: Read with offset/limit. To edit: Read a section with offset/limit, then use Edit. Make small, incremental edits — never rewrite the entire file.'
+    CONTEXT_SUFFIX='for reference. Read with any offset/limit to get actual code — a specific section or the entire file (offset=1, limit=LINE_COUNT). Never rewrite the entire file.'
 fi
 
 # --- Mode 1: Large file (>= LINE_THRESHOLD) ---
 # Always serve structural outline for untargeted reads of large files.
 if [ -z "${CONTEXT_PREFIX:-}" ]; then
     CONTEXT_PREFIX="Structural outline of"
-    CONTEXT_SUFFIX='To view code: Read with offset/limit using line ranges from the outline. To edit: Read a section with offset/limit, then use Edit with content from that Read. Each Read+Edit pair should be small and incremental — never rewrite an entire file.'
+    CONTEXT_SUFFIX='Read with any offset/limit to get actual code — a specific section or the entire file (offset=1, limit=LINE_COUNT). Never rewrite an entire file.'
 fi
 
 # --- Generate and serve outline ---

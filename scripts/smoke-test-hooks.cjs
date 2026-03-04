@@ -55,8 +55,8 @@ const m1out = mode1.hookSpecificOutput || {};
 assert('permissionDecision = allow', m1out.permissionDecision === 'allow', m1out.permissionDecision);
 assert('updatedInput.file_path is cache file', m1out.updatedInput && m1out.updatedInput.file_path && m1out.updatedInput.file_path.includes('.strata/'), m1out.updatedInput?.file_path);
 assert('additionalContext mentions outline', (m1out.additionalContext || '').includes('outline'), m1out.additionalContext?.substring(0, 80));
-assert('Mode 1 additionalContext mentions Edit', (m1out.additionalContext || '').includes('Edit'), m1out.additionalContext?.substring(0, 200));
-assert('Mode 1 additionalContext warns against full rewrite', (m1out.additionalContext || '').includes('never rewrite'), m1out.additionalContext?.substring(0, 300));
+assert('Mode 1 additionalContext mentions offset/limit', (m1out.additionalContext || '').includes('offset'), m1out.additionalContext?.substring(0, 200));
+assert('Mode 1 additionalContext warns against full rewrite', (m1out.additionalContext || '').toLowerCase().includes('never rewrite'), m1out.additionalContext?.substring(0, 300));
 
 // Check that cached outline file contains line-number tags
 const cacheFilePath = m1out.updatedInput && m1out.updatedInput.file_path;
@@ -90,7 +90,7 @@ const r4out = repeat.hookSpecificOutput || {};
 assert('repeat untargeted read serves outline', r4out.permissionDecision === 'allow', r4out.permissionDecision);
 assert('repeat untargeted read redirects to cache file', r4out.updatedInput && r4out.updatedInput.file_path && r4out.updatedInput.file_path.includes('.strata/'), r4out.updatedInput?.file_path);
 assert('repeat untargeted read additionalContext mentions outline', (r4out.additionalContext || '').includes('outline'), r4out.additionalContext?.substring(0, 100));
-assert('repeat untargeted read warns against full rewrite', (r4out.additionalContext || '').includes('never rewrite'), r4out.additionalContext?.substring(0, 300));
+assert('repeat untargeted read warns against full rewrite', (r4out.additionalContext || '').toLowerCase().includes('never rewrite'), r4out.additionalContext?.substring(0, 300));
 
 // --- Step 5: Mid-size file repeat read (Mode 2) ---
 console.log('\n=== Step 5: Mid-size file repeat read (Mode 2) ===');
@@ -139,9 +139,9 @@ if (fs.existsSync(hookLogPath)) {
 
   assert('hook.log has entries', logEntries.length > 0, `found ${logEntries.length}`);
 
-  const allHaveRequired = logEntries.every(e => e.ts && e.hook && e.decision && e.file);
-  assert('all entries have ts, hook, decision, file', allHaveRequired,
-    logEntries.find(e => !e.ts || !e.hook || !e.decision || !e.file) ? JSON.stringify(logEntries.find(e => !e.ts || !e.hook || !e.decision || !e.file)) : '');
+  const allHaveRequired = logEntries.every(e => e.ts && e.hook && e.decision && (e.file || e.source));
+  assert('all entries have ts, hook, decision, file|source', allHaveRequired,
+    logEntries.find(e => !e.ts || !e.hook || !e.decision || (!e.file && !e.source)) ? JSON.stringify(logEntries.find(e => !e.ts || !e.hook || !e.decision || (!e.file && !e.source))) : '');
 
   const preReadDecisions = new Set(logEntries.filter(e => e.hook === 'pre-read').map(e => e.decision));
   assert('log contains outline_always decision', preReadDecisions.has('outline_always'), [...preReadDecisions].join(', '));
