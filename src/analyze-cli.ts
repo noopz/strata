@@ -97,8 +97,10 @@ index.indexFile(absPath, tree, lines);
 // Get connections to previously seen files
 const connections = index.getConnections(absPath, 5);
 
-// Render with connections
-const view = renderStructuralView(tree, connections);
+// Render with connections. Default render depth of 2 — shows sections and their
+// immediate methods/blocks. The tree retains deeper analysis for targeted reads.
+const renderDepth = maxDepth ?? 2;
+const view = renderStructuralView(tree, connections, renderDepth);
 
 // Save the updated index
 try {

@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 # Shared utilities for strata hooks.
 
+# Ensure node is on PATH. Hooks run in non-interactive shells where version
+# managers (fnm, nvm, volta) haven't initialized. Check common locations.
+if ! command -v node &>/dev/null; then
+    for candidate in \
+        "${HOME}/.local/share/fnm/aliases/default/bin" \
+        "${HOME}/.fnm/aliases/default/bin" \
+        "${HOME}/.nvm/versions/node/$(cat "${HOME}/.nvm/alias/default" 2>/dev/null || true)/bin" \
+        "${HOME}/.volta/bin" \
+        "/usr/local/bin" \
+        "/opt/homebrew/bin"; do
+        if [ -x "${candidate}/node" ]; then
+            export PATH="${candidate}:${PATH}"
+            break
+        fi
+    done
+fi
+
 # Get the project root directory.
 # Primary: $CLAUDE_PROJECT_DIR (set by Claude Code for hooks and child processes)
 # Fallback: walk up from a path looking for project markers

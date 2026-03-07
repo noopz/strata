@@ -6,6 +6,8 @@ import {
   jaccardSimilarity,
   indentDepth,
   bracketDelta,
+  computeSmoothedEntropy,
+  entropyGradientAt,
 } from "./structural-analyzer.js";
 
 // ---------------------------------------------------------------------------
@@ -474,5 +476,219 @@ export function realContent() {
     const tree = analyzeFile(lines, "/test/mixed.ts", 1000, 4);
     assert.equal(tree.lineCount, lines.length);
     assert.ok(tree.children.length >= 2, "expected multiple top-level regions");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for entropy helpers
+// ---------------------------------------------------------------------------
+
+describe("computeSmoothedEntropy", () => {
+  it("returns smoothed values for a simple profile", () => {
+    // Build fake profiles with known entropy values
+    const profiles = [
+      { entropy: 1.0, indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false },
+      { entropy: 1.0, indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false },
+      { entropy: 3.0, indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false },
+      { entropy: 3.0, indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false },
+      { entropy: 3.0, indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false },
+    ];
+    const smoothed = computeSmoothedEntropy(profiles as any, 0, 5);
+    assert.equal(smoothed.length, 5);
+    // First element averaged with neighbors — should be between 1.0 and 3.0
+    assert.ok(smoothed[0]! >= 1.0 && smoothed[0]! <= 3.0);
+    // Last element should be close to 3.0
+    assert.ok(smoothed[4]! >= 2.5);
+  });
+
+  it("handles subregions correctly", () => {
+    const profiles = Array.from({ length: 10 }, (_, i) => ({
+      entropy: i < 5 ? 1.0 : 4.0,
+      indent: 0, bracketDelta: 0, tagDelta: 0, isBlank: false,
+    }));
+    // Only analyze [3, 7)
+    const smoothed = computeSmoothedEntropy(profiles as any, 3, 7);
+    assert.equal(smoothed.length, 4);
+  });
+});
+
+describe("entropyGradientAt", () => {
+  it("returns 0 at index 0", () => {
+    assert.equal(entropyGradientAt([1.0, 2.0, 3.0], 0), 0);
+  });
+
+  it("returns 0 at index beyond array", () => {
+    assert.equal(entropyGradientAt([1.0, 2.0, 3.0], 3), 0);
+  });
+
+  it("returns absolute difference between adjacent smoothed values", () => {
+    const grad = entropyGradientAt([1.0, 3.0, 2.5], 1);
+    assert.ok(Math.abs(grad - 2.0) < 0.001, `expected ~2.0, got ${grad}`);
+  });
+
+  it("handles negative gradients (absolute value)", () => {
+    const grad = entropyGradientAt([3.0, 1.0], 1);
+    assert.ok(Math.abs(grad - 2.0) < 0.001, `expected ~2.0, got ${grad}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for Enhancement 3: Entropy-enhanced similarity collapse
+// ---------------------------------------------------------------------------
+
+describe("entropy-adaptive collapse", () => {
+  it("uses dynamic threshold to prevent collapsing regions with different entropy", () => {
+    // Build regions that have HIGH Jaccard similarity but very different entropy.
+    // Simple getters (low entropy) vs complex methods (high entropy) with similar names.
+    const lines: string[] = [];
+
+    // 3 simple regions (low entropy — repetitive content)
+    for (let i = 0; i < 3; i++) {
+      lines.push(`function get${i}() {`);
+      lines.push(`  return this.x;`);
+      lines.push(`}`);
+      lines.push("");
+    }
+
+    // 3 complex regions (high entropy — diverse characters)
+    for (let i = 3; i < 6; i++) {
+      lines.push(`function get${i}() {`);
+      lines.push(`  const r = Math.random() * 0x7f3a + Date.now() % 9876;`);
+      lines.push(`  return JSON.stringify({ k: r, v: [1,2,3], z: "qwerty!@#$" });`);
+      lines.push(`  // complex line with high entropy: αβγδεζηθικλμ 0123456789`);
+      lines.push(`}`);
+      lines.push("");
+    }
+
+    const tree = analyzeFile(lines, "/test/entropy-guard.ts", 1000, 4);
+
+    // The simple and complex groups should NOT be collapsed into one giant
+    // collapsed node spanning all 6 regions, because their entropy differs.
+    // Check that we don't have a single collapsed node covering everything.
+    function findCollapsedCoveringAll(nodes: typeof tree.children): boolean {
+      for (const n of nodes) {
+        if (n.collapsed && n.startLine === 1 && n.endLine === lines.length) {
+          return true;
+        }
+        if (findCollapsedCoveringAll(n.children)) return true;
+      }
+      return false;
+    }
+    assert.ok(
+      !findCollapsedCoveringAll(tree.children),
+      "entropy guard should prevent collapsing simple + complex regions together",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for Enhancement 1: Entropy-weighted boundary scoring
+// ---------------------------------------------------------------------------
+
+describe("entropy-weighted boundary scoring", () => {
+  it("splits at entropy transition between structurally different sections", () => {
+    // Build a file with two distinct sections separated by a blank line:
+    // Section 1: import-like lines (low entropy, repetitive)
+    // Section 2: complex code (high entropy, diverse)
+    const lines: string[] = [];
+
+    // Low-entropy section (20 lines of repetitive imports)
+    for (let i = 0; i < 20; i++) {
+      lines.push(`import { x } from "./x";`);
+    }
+    lines.push(""); // blank line boundary
+
+    // High-entropy section (20 lines of diverse code)
+    for (let i = 0; i < 20; i++) {
+      lines.push(`const r${i} = Math.random() * 0x${i.toString(16)}fa + JSON.parse("${String.fromCharCode(65 + i)}");`);
+    }
+
+    const tree = analyzeFile(lines, "/test/entropy-scoring.ts", 1000, 3);
+    // Should have at least 2 children (split at the blank line)
+    assert.ok(
+      tree.children.length >= 2,
+      `expected >= 2 children, got ${tree.children.length}`,
+    );
+    // The boundary between sections should correspond to around line 21
+    const firstEnd = tree.children[0]!.endLine;
+    assert.ok(
+      firstEnd >= 19 && firstEnd <= 22,
+      `expected first section to end near line 21, got ${firstEnd}`,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for entropy-driven boundaries and adaptive depth
+// ---------------------------------------------------------------------------
+
+describe("entropy-driven boundary detection", () => {
+  it("decomposes large regions with distinct entropy zones via entropy boundaries", () => {
+    // Build a 450+ line file with 3 distinct entropy zones
+    // separated by blank lines so boundaries can be snapped
+    const lines: string[] = [];
+
+    // Zone 1: ~150 lines of very low entropy (identical repetitive lines)
+    for (let i = 0; i < 150; i++) {
+      lines.push(`aaaaaa`);
+    }
+    lines.push(""); // blank separator
+
+    // Zone 2: ~150 lines of high entropy (diverse characters per line)
+    for (let i = 0; i < 150; i++) {
+      lines.push(`const r${i} = Math.random() * 0x${(i * 17 + 31).toString(16)}fa + JSON.parse("${String.fromCharCode(65 + (i % 26))}!@#$%^&*");`);
+    }
+    lines.push(""); // blank separator
+
+    // Zone 3: ~150 lines back to low entropy (repetitive again)
+    for (let i = 0; i < 150; i++) {
+      lines.push(`bbbbbb`);
+    }
+
+    const tree = analyzeFile(lines, "/test/large-sections.sql", 1000);
+    assert.equal(tree.lineCount, lines.length);
+    // With entropy boundaries, should have multiple top-level children
+    assert.ok(
+      tree.children.length >= 2,
+      `expected >= 2 top-level sections, got ${tree.children.length}`,
+    );
+
+    // Full range coverage check
+    assert.equal(tree.children[0]!.startLine, 1);
+    assert.equal(tree.children[tree.children.length - 1]!.endLine, lines.length);
+  });
+
+  it("falls through to L1-3 for entropy-uniform large files", () => {
+    // Build a 400-line file with uniform entropy (all lines similar)
+    const lines: string[] = [];
+    for (let i = 0; i < 400; i++) {
+      if (i % 20 === 0 && i > 0) {
+        lines.push(""); // blank line every 20 lines
+      }
+      lines.push(`const value${i} = ${i};`);
+    }
+
+    const tree = analyzeFile(lines, "/test/uniform.ts", 1000);
+    // Should still produce a valid tree even without entropy sections
+    assert.ok(tree.children.length >= 1, "expected at least 1 child");
+    assert.equal(tree.children[0]!.startLine, 1);
+    assert.equal(tree.children[tree.children.length - 1]!.endLine, tree.lineCount);
+  });
+
+  it("handles files under 300 lines without entropy boundaries", () => {
+    // Build a 200-line file with entropy transitions
+    const lines: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      lines.push(`import { x } from "./x";`);
+    }
+    for (let i = 0; i < 100; i++) {
+      lines.push(`const r${i} = Math.random() * 0x${i.toString(16)}fa;`);
+    }
+
+    const tree = analyzeFile(lines, "/test/small-no-sections.ts", 1000);
+    // Should still work but depth 1 (< 300 lines)
+    assert.ok(tree.children.length >= 1);
+    assert.equal(tree.children[0]!.startLine, 1);
+    assert.equal(tree.children[tree.children.length - 1]!.endLine, 200);
   });
 });
