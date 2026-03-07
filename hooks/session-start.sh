@@ -9,12 +9,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
-# Extract source from stdin (startup, resume, clear, compact)
+# Extract source and event name from stdin
 INPUT=$(cat)
-SOURCE=$(printf '%s' "$INPUT" | node -e "
+read -r SOURCE HOOK_EVENT < <(printf '%s' "$INPUT" | node -e "
 const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
-console.log(d.source||'unknown');
-" 2>/dev/null || echo "unknown")
+console.log((d.source||'unknown') + ' ' + (d.hook_event_name||'SessionStart'));
+" 2>/dev/null || echo "unknown SessionStart")
 
 PROJECT_ROOT="$(get_project_root "$(pwd)")"
 CACHE_DIR="${PROJECT_ROOT}/.strata"
@@ -45,4 +45,4 @@ process.stdout.write(JSON.stringify(text).slice(1, -1));
   exit 0
 }
 
-printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$ESCAPED"
+printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "%s",\n    "additionalContext": "%s"\n  }\n}\n' "$HOOK_EVENT" "$ESCAPED"
