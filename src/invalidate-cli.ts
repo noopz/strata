@@ -14,6 +14,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { CrossFileIndex } from "./cross-file-index.js";
 import { getCacheDir, getIndexPath } from "./utils.js";
 
@@ -55,10 +56,14 @@ export function invalidateCache(filePath: string): void {
   }
 }
 
-// CLI entry point
-const filePath = process.argv[2];
-if (filePath) {
-  invalidateCache(filePath);
-} else if (process.argv[1] && path.basename(process.argv[1]).includes("invalidate-cli")) {
-  process.exit(0);
+// CLI entry point — only runs when this file is the direct entry point, not when imported
+const __invalidate_filename = fileURLToPath(import.meta.url);
+const isDirectRun = process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === __invalidate_filename;
+
+if (isDirectRun) {
+  const filePath = process.argv[2];
+  if (filePath) {
+    invalidateCache(filePath);
+  }
 }

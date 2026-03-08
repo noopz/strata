@@ -16,6 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { analyzeFile } from "./structural-analyzer.js";
 import { CrossFileIndex } from "./cross-file-index.js";
 import { renderStructuralView } from "./formatter.js";
@@ -76,11 +77,19 @@ export function generateOutline(filePath: string, maxDepth?: number): string {
   return view;
 }
 
-// CLI entry point
-const filePath = process.argv[2];
-if (filePath) {
-  const maxDepth = process.argv[3] ? parseInt(process.argv[3], 10) : undefined;
+// CLI entry point — only runs when this file is the direct entry point, not when imported
+const __analyze_filename = fileURLToPath(import.meta.url);
+const isDirectRun = process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === __analyze_filename;
 
+if (isDirectRun) {
+  const filePath = process.argv[2];
+  if (!filePath) {
+    console.error("Usage: analyze-cli <file_path> [max_depth]");
+    process.exit(1);
+  }
+
+  const maxDepth = process.argv[3] ? parseInt(process.argv[3], 10) : undefined;
   const absPath = path.resolve(filePath);
   if (!fs.existsSync(absPath)) {
     console.error(`File not found: ${absPath}`);
@@ -88,8 +97,4 @@ if (filePath) {
   }
 
   process.stdout.write(generateOutline(absPath, maxDepth));
-} else if (process.argv[1] && path.basename(process.argv[1]).includes("analyze-cli")) {
-  // Only show usage error when run directly as CLI, not when imported
-  console.error("Usage: analyze-cli <file_path> [max_depth]");
-  process.exit(1);
 }

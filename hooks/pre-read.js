@@ -43,9 +43,9 @@ if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
 // Cache in .strata/ inside the project root
 const cacheDir = getCacheDir(filePath);
 
-// Count lines
+// Count lines (match wc -l: count newline characters)
 const content = fs.readFileSync(filePath, "utf-8");
-const lineCount = content.split("\n").length;
+const lineCount = (content.match(/\n/g) || []).length;
 
 // Set up cache key (shared by all modes)
 fs.mkdirSync(cacheDir, { recursive: true });
