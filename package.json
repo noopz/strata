@@ -1,6 +1,6 @@
 {
   "name": "strata",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Adaptive structural editing for LLM coding agents — entropy-guided structural analysis, hashline edits, cross-file reference detection",
   "type": "module",
   "main": "dist/index.js",
