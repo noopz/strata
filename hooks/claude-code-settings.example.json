@@ -9,33 +9,6 @@
             "command": "/absolute/path/to/strata/hooks/pre-read.sh"
           }
         ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/absolute/path/to/strata/hooks/pre-edit.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/absolute/path/to/strata/hooks/pre-grep.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/absolute/path/to/strata/hooks/pre-bash.sh"
-          }
-        ]
       }
     ],
     "PostToolUse": [

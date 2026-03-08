@@ -29,24 +29,6 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-read.js\""
           }
         ]
-      },
-      {
-        "matcher": "Grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-grep.js\""
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.js\""
-          }
-        ]
       }
     ],
     "PostToolUse": [
