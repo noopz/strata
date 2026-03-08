@@ -24,7 +24,7 @@ fs.writeFileSync(TEST_FILE, lines.join('\n') + '\n');
 
 function runHook(hookName, input) {
   const hookPath = path.join(HOOKS_DIR, hookName);
-  const result = execSync(`bash "${hookPath}"`, {
+  const result = execSync(`node "${hookPath}"`, {
     input: JSON.stringify(input),
     env: { ...process.env, CLAUDE_PROJECT_DIR: '/tmp' },
     encoding: 'utf-8',
@@ -50,7 +50,7 @@ function assert(label, condition, detail) {
 
 // --- Step 1: Mode 1 — Untargeted Read ---
 console.log('\n=== Step 1: Untargeted Read (Mode 1) ===');
-const mode1 = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE } });
+const mode1 = runHook('pre-read.js', { tool_input: { file_path: TEST_FILE } });
 const m1out = mode1.hookSpecificOutput || {};
 assert('permissionDecision = allow', m1out.permissionDecision === 'allow', m1out.permissionDecision);
 assert('updatedInput.file_path is cache file', m1out.updatedInput && m1out.updatedInput.file_path && m1out.updatedInput.file_path.includes('.strata/'), m1out.updatedInput?.file_path);
@@ -69,7 +69,7 @@ if (cacheFilePath && fs.existsSync(cacheFilePath)) {
 
 // --- Step 2: Targeted Read on large file — passthrough with context ---
 console.log('\n=== Step 2: Targeted Read on large file (passthrough + context) ===');
-const targeted = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE, offset: 40, limit: 8 } });
+const targeted = runHook('pre-read.js', { tool_input: { file_path: TEST_FILE, offset: 40, limit: 8 } });
 const t2out = targeted.hookSpecificOutput || {};
 assert('targeted read permissionDecision = allow', t2out.permissionDecision === 'allow', t2out.permissionDecision);
 assert('targeted read does NOT redirect file_path', !t2out.updatedInput, JSON.stringify(t2out.updatedInput));
@@ -78,14 +78,14 @@ assert('targeted read additionalContext warns against full rewrite', (t2out.addi
 
 // --- Step 3: Offset-only Read on large file — passthrough with context ---
 console.log('\n=== Step 3: Offset-only Read on large file (passthrough + context) ===');
-const offsetOnly = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE, offset: 40 } });
+const offsetOnly = runHook('pre-read.js', { tool_input: { file_path: TEST_FILE, offset: 40 } });
 const o3out = offsetOnly.hookSpecificOutput || {};
 assert('offset-only read permissionDecision = allow', o3out.permissionDecision === 'allow', o3out.permissionDecision);
 assert('offset-only read does NOT redirect file_path', !o3out.updatedInput, JSON.stringify(o3out.updatedInput));
 
 // --- Step 4: Repeat untargeted Read of large file — should serve outline again ---
 console.log('\n=== Step 4: Repeat untargeted Read of large file ===');
-const repeat = runHook('pre-read.sh', { tool_input: { file_path: TEST_FILE } });
+const repeat = runHook('pre-read.js', { tool_input: { file_path: TEST_FILE } });
 const r4out = repeat.hookSpecificOutput || {};
 assert('repeat untargeted read serves outline', r4out.permissionDecision === 'allow', r4out.permissionDecision);
 assert('repeat untargeted read redirects to cache file', r4out.updatedInput && r4out.updatedInput.file_path && r4out.updatedInput.file_path.includes('.strata/'), r4out.updatedInput?.file_path);
@@ -114,12 +114,12 @@ if (fs.existsSync(midCacheDir)) {
 
 // 5a: First untargeted read → passthrough
 console.log('  --- 5a: First read (passthrough) ---');
-const mid1 = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE } });
+const mid1 = runHook('pre-read.js', { tool_input: { file_path: MID_TEST_FILE } });
 assert('first mid-size read passes through (empty JSON)', Object.keys(mid1).length === 0, JSON.stringify(mid1));
 
 // 5b: Second untargeted read → outline served
 console.log('  --- 5b: Second read (outline) ---');
-const mid2 = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE } });
+const mid2 = runHook('pre-read.js', { tool_input: { file_path: MID_TEST_FILE } });
 const m2out = mid2.hookSpecificOutput || {};
 assert('repeat read serves outline', m2out.permissionDecision === 'allow', m2out.permissionDecision);
 assert('repeat read redirects to cache file', m2out.updatedInput && m2out.updatedInput.file_path && m2out.updatedInput.file_path.includes('.strata/'), m2out.updatedInput?.file_path);
@@ -127,7 +127,7 @@ assert('repeat read additionalContext mentions "Previously read"', (m2out.additi
 
 // 5c: Targeted read of same file → still passthrough
 console.log('  --- 5c: Targeted read (passthrough) ---');
-const midTargeted = runHook('pre-read.sh', { tool_input: { file_path: MID_TEST_FILE, offset: 48, limit: 6 } });
+const midTargeted = runHook('pre-read.js', { tool_input: { file_path: MID_TEST_FILE, offset: 48, limit: 6 } });
 assert('targeted read of mid-size file passes through', Object.keys(midTargeted).length === 0, JSON.stringify(midTargeted));
 
 // --- Step 6: Verify hook log entries ---
