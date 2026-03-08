@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.js\""
           }
         ]
       }
@@ -26,16 +26,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-read.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-read.js\""
           }
         ]
       },
-{
+      {
         "matcher": "Grep",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-grep.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-grep.js\""
           }
         ]
       },
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash.js\""
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-edit.sh"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/post-edit.js\""
           }
         ]
       }

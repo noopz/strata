@@ -1,0 +1,3 @@
+hooks/*.js text eol=lf
+hooks/*.sh text eol=lf
+hooks/lib/*.js text eol=lf

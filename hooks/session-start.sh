@@ -36,9 +36,7 @@ Exploring or navigating: Read without offset/limit to get the outline. This show
     [16-89] 16:class ListingListView(View):
     [90-156] 90:class ListingDetailView(View):
 
-Preparing to edit: Read with offset=1, limit=2000 to get the full file directly, skipping the outline. This is what you would normally do before editing.
-
-You choose the mode per read based on your intent.\`;
+Preparing to edit: The Read tool returns at most 2000 lines per call. Use the outline's line ranges to read the section you need — for example, [90-156] means offset=90, limit=67 will get that class. For files over 2000 lines, paginate: read offset=1 limit=2000, then offset=2001 limit=2000, etc. You choose how much context to read based on what you're changing.\`;
 process.stdout.write(JSON.stringify(text).slice(1, -1));
 " 2>/dev/null) || {
   echo '{}'
