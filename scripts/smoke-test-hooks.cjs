@@ -56,7 +56,7 @@ assert('permissionDecision = allow', m1out.permissionDecision === 'allow', m1out
 assert('updatedInput.file_path is cache file', m1out.updatedInput && m1out.updatedInput.file_path && m1out.updatedInput.file_path.includes('.strata/'), m1out.updatedInput?.file_path);
 assert('additionalContext mentions outline', (m1out.additionalContext || '').includes('outline'), m1out.additionalContext?.substring(0, 80));
 assert('Mode 1 additionalContext mentions offset/limit', (m1out.additionalContext || '').includes('offset'), m1out.additionalContext?.substring(0, 200));
-assert('Mode 1 additionalContext warns against full rewrite', (m1out.additionalContext || '').toLowerCase().includes('never rewrite'), m1out.additionalContext?.substring(0, 300));
+assert('Mode 1 additionalContext mentions edit preference', (m1out.additionalContext || '').toLowerCase().includes('incremental edits'), m1out.additionalContext?.substring(0, 300));
 
 // Check that cached outline file contains line-number tags
 const cacheFilePath = m1out.updatedInput && m1out.updatedInput.file_path;
@@ -74,7 +74,7 @@ const t2out = targeted.hookSpecificOutput || {};
 assert('targeted read permissionDecision = allow', t2out.permissionDecision === 'allow', t2out.permissionDecision);
 assert('targeted read does NOT redirect file_path', !t2out.updatedInput, JSON.stringify(t2out.updatedInput));
 assert('targeted read additionalContext mentions Edit', (t2out.additionalContext || '').includes('Edit'), t2out.additionalContext?.substring(0, 200));
-assert('targeted read additionalContext warns against full rewrite', (t2out.additionalContext || '').includes('never rewrite'), t2out.additionalContext?.substring(0, 200));
+assert('targeted read additionalContext mentions edit preference', (t2out.additionalContext || '').includes('incremental edits'), t2out.additionalContext?.substring(0, 200));
 
 // --- Step 3: Offset-only Read on large file — passthrough with context ---
 console.log('\n=== Step 3: Offset-only Read on large file (passthrough + context) ===');
@@ -90,7 +90,7 @@ const r4out = repeat.hookSpecificOutput || {};
 assert('repeat untargeted read serves outline', r4out.permissionDecision === 'allow', r4out.permissionDecision);
 assert('repeat untargeted read redirects to cache file', r4out.updatedInput && r4out.updatedInput.file_path && r4out.updatedInput.file_path.includes('.strata/'), r4out.updatedInput?.file_path);
 assert('repeat untargeted read additionalContext mentions outline', (r4out.additionalContext || '').includes('outline'), r4out.additionalContext?.substring(0, 100));
-assert('repeat untargeted read warns against full rewrite', (r4out.additionalContext || '').toLowerCase().includes('never rewrite'), r4out.additionalContext?.substring(0, 300));
+assert('repeat untargeted read mentions edit preference', (r4out.additionalContext || '').toLowerCase().includes('incremental edits'), r4out.additionalContext?.substring(0, 300));
 
 // --- Step 5: Mid-size file repeat read (Mode 2) ---
 console.log('\n=== Step 5: Mid-size file repeat read (Mode 2) ===');

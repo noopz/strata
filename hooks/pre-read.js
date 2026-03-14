@@ -71,7 +71,7 @@ if (offset !== undefined && offset !== null && offset !== "" && /^\d+$/.test(Str
         hookEventName: "PreToolUse",
         permissionDecision: "allow",
         additionalContext:
-          "You can Edit this section using content from this Read. Make small, incremental edits — never rewrite the entire file.",
+          "You can Edit this section using content from this Read. Prefer incremental edits over sweeping rewrites, but use your judgement based on the task.",
       },
     };
     process.stdout.write(JSON.stringify(output) + "\n");
@@ -121,12 +121,12 @@ if (lineCount < LINE_THRESHOLD) {
   // Repeat read → fall through to outline generation
   contextPrefix = "Previously read in full. Outline of";
   contextSuffix =
-    "for reference. Read with offset/limit to get actual code for any section — use the line ranges to target your read. Read returns at most 2000 lines per call; paginate with increasing offsets for larger spans. Never rewrite the entire file.";
+    "for reference. Read with offset/limit to get actual code for any section — use the line ranges to target your read. For larger spans, paginate with increasing offsets. Prefer incremental edits over sweeping rewrites, but use your judgement based on the task.";
 } else {
   // Mode 1: Large file (>= LINE_THRESHOLD)
   contextPrefix = "Structural outline of";
   contextSuffix =
-    "Read with offset/limit to get actual code for any section — use the line ranges to target your read. Read returns at most 2000 lines per call; paginate with increasing offsets for larger spans. Never rewrite an entire file.";
+    "Read with offset/limit to get actual code for any section — use the line ranges to target your read. For larger spans, paginate with increasing offsets. Prefer incremental edits over sweeping rewrites, but use your judgement based on the task.";
 }
 
 // --- Generate and serve outline ---
