@@ -359,7 +359,7 @@ export function calculateTotal(items: Item[]): number {
   });
 
   it("uses smart thresholds when maxDepth is not provided", () => {
-    // Small file: < 300 lines → depth 1
+    // Small file: < 300 lines → depth 2
     const smallLines: string[] = [];
     for (let i = 0; i < 50; i++) {
       smallLines.push(`const var${i} = ${i};`);
@@ -367,13 +367,15 @@ export function calculateTotal(items: Item[]): number {
     }
     const smallTree = analyzeFile(smallLines, "/test/small.ts", 1000);
 
-    // With depth 1, every child should be a leaf
+    // With depth 2, grandchildren should all be leaves
     for (const child of smallTree.children) {
-      assert.equal(
-        child.children.length,
-        0,
-        "expected leaf children for small file",
-      );
+      for (const grandchild of child.children) {
+        assert.equal(
+          grandchild.children.length,
+          0,
+          "expected leaf grandchildren for small file",
+        );
+      }
     }
   });
 

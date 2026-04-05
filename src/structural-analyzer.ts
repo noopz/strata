@@ -285,6 +285,9 @@ function findExplicitBoundaries(
   // Lines like "// ====", "# ----", "/* *** */" are universal section markers.
   const SEPARATOR_RE = /([=\-*#~_])\1{7,}/;
 
+  // Markdown headings: `# H1` through `###### H6`. Score decreases with depth.
+  const MD_HEADING_RE = /^(#{1,6})\s+\S/;
+
   for (let i = start; i < end; i++) {
     const localIdx = i - start;
     const prof = profiles[i]!;
@@ -299,6 +302,20 @@ function findExplicitBoundaries(
     // Always wins budget selection, creating section-level structure.
     if (!prof.isBlank && SEPARATOR_RE.test(lines[i]!)) {
       bounds.push({ index: i, score: 5, isSeparator: true });
+      continue;
+    }
+
+    // Markdown heading → entropy-weighted boundary.
+    // Heading level sets the ceiling (# = 4.5, ## = 4.0, ### = 3.5, etc.)
+    // but entropy modulates: a heading at a major content shift scores near
+    // the ceiling, while one between similar paragraphs scores near the floor.
+    // Floor is 40% of ceiling — headings always beat most blank lines.
+    const mdMatch = MD_HEADING_RE.exec(lines[i]!);
+    if (mdMatch) {
+      const level = mdMatch[1]!.length; // 1-6
+      const ceiling = Math.max(2.5, 5.0 - level * 0.5);
+      const headingScore = ceiling * (0.4 + 0.6 * eFactor);
+      bounds.push({ index: i, score: headingScore });
       continue;
     }
 
@@ -780,12 +797,24 @@ function analyzeRegion(
   // Entropy-adaptive depth: regions with entropy significantly above the file
   // mean get +1 depth (more detail for complex code), regions below get -1
   // (less detail for repetitive data/imports).
+  // Exception: don't penalize regions that contain markdown headings — those
+  // are explicit author-placed structure that should be respected regardless
+  // of entropy uniformity.
   const regionEntropy = regionAvgEntropy(profiles, start, end);
   const z =
     eStats.std > ENTROPY_MIN_STD
       ? (regionEntropy - eStats.mean) / eStats.std
       : 0;
-  const depthBonus = z > ENTROPY_DEPTH_Z ? 1 : z < -ENTROPY_DEPTH_Z ? -1 : 0;
+  let depthBonus = z > ENTROPY_DEPTH_Z ? 1 : z < -ENTROPY_DEPTH_Z ? -1 : 0;
+  if (depthBonus < 0) {
+    const MD_HEADING_CHECK = /^#{1,6}\s+\S/;
+    for (let i = start; i < end; i++) {
+      if (MD_HEADING_CHECK.test(lines[i]!)) {
+        depthBonus = 0;
+        break;
+      }
+    }
+  }
   const effectiveMaxDepth = maxDepth + depthBonus;
 
   // Base case: too small or too deep → leaf node
@@ -940,7 +969,7 @@ function makeLeaf(
 // ---------------------------------------------------------------------------
 
 function defaultMaxDepth(lineCount: number): number {
-  if (lineCount < 300) return 1; // simple outline
+  if (lineCount < 300) return 2; // enough for heading-structured markdown
   if (lineCount <= 2000) return 4;
   if (lineCount <= 50000) return 3;
   return 2; // 50K+ → aggressive
